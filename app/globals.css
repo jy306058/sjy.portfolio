@@ -17,9 +17,11 @@ html {
   scroll-behavior: smooth;
 }
 
+/* 흰 배경은 html 에서만 칠한다. body 가 불투명하면 음수 z-index 로 깔린
+   인터랙티브 배경 캔버스가 가려지기 때문이다. */
 body {
   min-height: 100dvh;
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   font-family:
     var(--font-geist-sans),
