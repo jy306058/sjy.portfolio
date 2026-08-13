@@ -19,32 +19,34 @@ const X_TO_Y = 0.042;
 const MIN_STEP_PX = 6.5;
 
 /* ── 파도 ────────────────────────────────────────────────────── */
-/** 기본 파도의 위상 진행 속도(rad/s). 아주 느린 물결을 만든다. */
-const BASE_SPEED = 0.26;
+/** 기본 파도의 위상 진행 속도(rad/s). 호흡하듯 아주 느리게 꿀렁인다. */
+const BASE_SPEED = 0.13;
 /** 완전히 여기된 점에 더해지는 위상 속도(rad/s). '휘리릭' 구간의 빠르기. */
-const SPEED_BOOST = 5.4;
+const SPEED_BOOST = 2.6;
 /** 수평선까지의 거리 대비 파도 진폭 비율. 가까운 점일수록 크게 출렁인다. */
-const AMP_RATIO = 0.045;
+const AMP_RATIO = 0.062;
 /** 완전히 여기된 점의 진폭 배수. */
 const AMP_BOOST = 3.4;
 /** 파도의 공간 주파수. 단위는 '격자 한 칸'이라 값이 곧 이웃한 점 사이의 위상차다.
- *  작게 둘수록 파장이 길어져 인접한 점의 높이 차이가 줄고 하나의 면처럼 이어진다. */
-const FREQ_X = 0.11;
-const FREQ_Z = 0.1;
+ *  화면 전체에 큰 너울 한두 개만 남도록 극단적으로 낮춰 하나의 덩어리로 묶는다. */
+const FREQ_X = 0.042;
+const FREQ_Z = 0.04;
 
 /* ── 마우스 여기(excitation) ──────────────────────────────────── */
-/** 커서가 점을 흔드는 화면상 반경(px). */
-const HOVER_RADIUS = 150;
+/** 커서가 점을 흔드는 화면상 반경(px). 넓을수록 한 번에 반응하는 덩어리가 커진다. */
+const HOVER_RADIUS = 260;
+/** 여기 상태가 목표치까지 차오르는 시정수(초). 급발진 대신 끈적하게 붙는다. */
+const EXCITE_ATTACK = 0.18;
 /** 여기 상태가 1/e 로 잦아드는 시간(초). 커서가 지나간 뒤 되돌아가는 속도. */
-const EXCITE_TAU = 0.62;
+const EXCITE_TAU = 1.1;
 /** 이 값을 넘는 점은 조금 크고 진하게 강조한다. */
-const EXCITE_HIGHLIGHT = 0.16;
+const EXCITE_HIGHLIGHT = 0.22;
 
 /* ── 클릭 파티클 ─────────────────────────────────────────────── */
 const PARTICLE_MIN = 3;
 const PARTICLE_MAX = 5;
-/** 파티클에 적용되는 중력(px/s²). */
-const GRAVITY = 1150;
+/** 파티클에 적용되는 중력(px/s²). 크게 둘수록 무겁고 쫀득하게 떨어진다. */
+const GRAVITY = 1900;
 /** 동시에 살아 있을 수 있는 파티클 수 상한. */
 const MAX_PARTICLES = 90;
 
@@ -165,10 +167,12 @@ export function InteractiveBackground() {
     };
 
     /** 커서 반경 안의 점에 여기 상태를 주입한다. */
-    const applyPointer = () => {
+    const applyPointer = (delta: number) => {
       if (!pointerActive) return;
 
       const radiusSq = HOVER_RADIUS * HOVER_RADIUS;
+      // 목표치로 곧장 튀지 않고 시정수만큼 차오르게 해 점성 있는 반응을 만든다.
+      const attack = 1 - Math.exp(-delta / EXCITE_ATTACK);
 
       for (let r = 0; r < rows.length; r += 1) {
         const row = rows[r];
@@ -193,10 +197,11 @@ export function InteractiveBackground() {
           const distSq = dx * dx + dy * dy;
           if (distSq > radiusSq) continue;
 
-          // 가운데일수록 강하게, 가장자리로 갈수록 부드럽게 잦아든다.
-          const falloff = 1 - Math.sqrt(distSq) / HOVER_RADIUS;
-          const eased = falloff * falloff * (3 - 2 * falloff);
-          if (eased > row.excite[i]) row.excite[i] = eased;
+          // 반경이 넓어진 만큼 smootherstep 으로 가장자리를 더 부드럽게 흘린다.
+          const t = 1 - Math.sqrt(distSq) / HOVER_RADIUS;
+          const eased = t * t * t * (t * (t * 6 - 15) + 10);
+          const current = row.excite[i];
+          if (eased > current) row.excite[i] = current + (eased - current) * attack;
         }
       }
     };
@@ -214,8 +219,8 @@ export function InteractiveBackground() {
         particles.push({
           x,
           y,
-          vx: (Math.random() - 0.5) * 260,
-          vy: -(300 + Math.random() * 260),
+          vx: (Math.random() - 0.5) * 240,
+          vy: -(330 + Math.random() * 280),
           radius: 1.6 + Math.random() * 1.9,
           life: maxLife,
           maxLife,
@@ -245,7 +250,7 @@ export function InteractiveBackground() {
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, width, height);
 
-      applyPointer();
+      applyPointer(delta);
 
       // 여기 상태는 시간 기준으로 감쇠시켜 프레임 레이트와 무관하게 만든다.
       const decay = Math.exp(-delta / EXCITE_TAU);
