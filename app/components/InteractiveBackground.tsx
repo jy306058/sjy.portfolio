@@ -92,15 +92,140 @@ const BOB_DRIVE = 250;
 /** 변위와 속도가 모두 이보다 작아지면 0 으로 스냅해 잔떨림을 끊는다. */
 const BOB_EPSILON = 0.02;
 
-/* ── 밤바다 팔레트 ───────────────────────────────────────────── */
-/** 화면 맨 위 천정. 거의 검은 남색. */
-const SKY_TOP = "#04081a";
-/** 수평선 부근 하늘. 달빛이 번져 한 단계 밝다. */
-const SKY_HORIZON = "#1a3a68";
-/** 수평선 바로 아래 먼 바다. */
-const SEA_FAR = "#16294d";
-/** 화면 앞쪽 바다. 가장 깊고 어둡다. */
-const SEA_NEAR = "#080f22";
+/* ── 팔레트 ──────────────────────────────────────────────────── */
+type RGB = readonly [number, number, number];
+
+/** 장면 전체의 색. 밤과 아침 두 벌을 두고 그 사이를 보간한다. */
+type Palette = {
+  /** 화면 맨 위 천정. */
+  skyTop: RGB;
+  /** 수평선 부근 하늘. 광원이 번져 한 단계 밝다. */
+  skyHorizon: RGB;
+  /** 수평선 바로 아래 먼 바다. */
+  seaFar: RGB;
+  /** 화면 앞쪽 바다. 가장 깊다. */
+  seaNear: RGB;
+  /** 광원 원반. */
+  orb: RGB;
+  /** 후광이 안에서 바깥으로 식어 가는 색. */
+  haloInner: RGB;
+  haloMid: RGB;
+  haloOuter: RGB;
+  /** 수면에 깔리는 빛기둥. */
+  columnInner: RGB;
+  columnMid: RGB;
+  columnOuter: RGB;
+  /** 빛이 닿지 않는 점의 색. 차가운 물빛을 남겨 둬야 반사광이 도드라진다. */
+  dotDark: RGB;
+  /** 빛을 정면으로 되쏘는 점의 색. 광원과 같아야 반사로 읽힌다. */
+  dotGlint: RGB;
+};
+
+const NIGHT: Palette = {
+  skyTop: [4, 8, 26],
+  skyHorizon: [26, 58, 104],
+  seaFar: [22, 41, 77],
+  seaNear: [8, 15, 34],
+  orb: [255, 240, 143],
+  haloInner: [255, 240, 143],
+  haloMid: [230, 220, 152],
+  haloOuter: [112, 148, 210],
+  columnInner: [255, 240, 143],
+  columnMid: [158, 178, 220],
+  columnOuter: [90, 132, 200],
+  dotDark: [56, 94, 156],
+  dotGlint: [255, 240, 143],
+};
+
+/** 저녁노을. 분홍 하늘에서 수평선의 주황으로 내려앉고, 앞바다는 남색으로 가라앉는다.
+ *  가장 밝은 주황을 수평선(광원 언저리)에 두고 위로 갈수록 분홍으로 식혀야
+ *  해가 걸린 자리가 저절로 화면의 초점이 된다. */
+const SUNSET: Palette = {
+  skyTop: [222, 132, 146],
+  skyHorizon: [250, 168, 122],
+  seaFar: [214, 132, 124],
+  seaNear: [38, 46, 88],
+  orb: [255, 198, 128],
+  haloInner: [255, 176, 110],
+  haloMid: [242, 146, 130],
+  haloOuter: [150, 110, 150],
+  columnInner: [255, 186, 120],
+  columnMid: [226, 140, 140],
+  columnOuter: [92, 98, 152],
+  dotDark: [98, 100, 150],
+  dotGlint: [255, 178, 110],
+};
+
+/** 아침. 하늘과 바다가 푸르게 열리고, 광원과 윤슬은 흰빛이 된다. */
+const MORNING: Palette = {
+  skyTop: [26, 84, 152],
+  skyHorizon: [176, 215, 240],
+  seaFar: [104, 162, 205],
+  seaNear: [16, 54, 98],
+  orb: [255, 255, 255],
+  haloInner: [255, 255, 255],
+  haloMid: [214, 234, 250],
+  haloOuter: [130, 185, 232],
+  columnInner: [255, 255, 255],
+  columnMid: [205, 230, 248],
+  columnOuter: [120, 175, 226],
+  dotDark: [70, 126, 182],
+  dotGlint: [255, 255, 255],
+};
+
+const mixRgb = (a: RGB, b: RGB, t: number): RGB => [
+  Math.round(a[0] + (b[0] - a[0]) * t),
+  Math.round(a[1] + (b[1] - a[1]) * t),
+  Math.round(a[2] + (b[2] - a[2]) * t),
+];
+const cssRgb = (c: RGB) => `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+const cssRgba = (c: RGB, a: number) => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a})`;
+
+const mixPalette = (a: Palette, b: Palette, t: number): Palette => ({
+  skyTop: mixRgb(a.skyTop, b.skyTop, t),
+  skyHorizon: mixRgb(a.skyHorizon, b.skyHorizon, t),
+  seaFar: mixRgb(a.seaFar, b.seaFar, t),
+  seaNear: mixRgb(a.seaNear, b.seaNear, t),
+  orb: mixRgb(a.orb, b.orb, t),
+  haloInner: mixRgb(a.haloInner, b.haloInner, t),
+  haloMid: mixRgb(a.haloMid, b.haloMid, t),
+  haloOuter: mixRgb(a.haloOuter, b.haloOuter, t),
+  columnInner: mixRgb(a.columnInner, b.columnInner, t),
+  columnMid: mixRgb(a.columnMid, b.columnMid, t),
+  columnOuter: mixRgb(a.columnOuter, b.columnOuter, t),
+  dotDark: mixRgb(a.dotDark, b.dotDark, t),
+  dotGlint: mixRgb(a.dotGlint, b.dotGlint, t),
+});
+
+/* ── 밤 → 노을 → 아침 → 밤 … 순환 ───────────────────────────── */
+/** 광원을 끌어내리며 지나는 단계. 끝에서 처음으로 되돌아오는 고리라
+ *  아침에서 한 번 더 끌면 밤이 되고, 밤에서 되끌면 곧장 아침으로 간다.
+ *  단계 사이의 움직임은 언제나 '하나가 지고, 하나가 위에서 내려온다'로 같다. */
+const STAGES: readonly Palette[] = [NIGHT, SUNSET, MORNING];
+
+/** 진행도가 놓인 구간과 그 안에서의 위치. 단위는 '단계 수'라 1 = 한 단계다.
+ *  값을 고리 위로 접어 쓰므로 진행도 자체는 범위를 두지 않는다. 접기를 여기서만
+ *  하면 드래그·정착 쪽은 경계를 몰라도 되고, 그래서 되감기는 순간에도 튀지 않는다.
+ *  구간 끝(f=1)과 다음 구간 처음(f=0)이 같은 색·같은 배치라 이음매가 없다. */
+const stageAt = (p: number) => {
+  const n = STAGES.length;
+  const wrapped = ((p % n) + n) % n;
+  const index = Math.floor(wrapped);
+  return {
+    from: STAGES[index],
+    to: STAGES[(index + 1) % n],
+    f: wrapped - index,
+  };
+};
+
+/** 한 단계를 넘기는 데 필요한 드래그 거리(뷰포트 높이 대비). */
+const DAY_DRAG_RATIO = 0.34;
+const DAY_DRAG_MIN = 180;
+const DAY_DRAG_MAX = 380;
+/** 손을 뗀 뒤 목표값으로 수렴하는 시정수(초). */
+const DAY_SETTLE_TAU = 0.22;
+/** 원반이 작아도 이 반경 안이면 잡히게 해 터치 목표를 확보한다. */
+const ORB_GRAB_MIN = 30;
 
 /* ── 광원(달) ────────────────────────────────────────────────── */
 /** 달의 가로 위치 비율. */
@@ -125,13 +250,8 @@ const COLUMN_GLOW_RADIUS = 330;
  *  그래서 축이 아직 휘지 않은 수평선 부근만 받치고, 그보다 앞은 점이 길을 그리게 둔다. */
 const COLUMN_GLOW_STRETCH = 2;
 
-/* ── 윤슬(달빛 반사) ─────────────────────────────────────────── */
-/** 달빛이 닿지 않는 점의 색. 바다에 잠긴 짙은 청색.
- *  차가운 물빛을 남겨 둬야 연노랑 반사광이 도드라진다. */
-const DOT_DARK: [number, number, number] = [56, 94, 156];
-/** 달빛을 정면으로 되쏘는 점의 색. 광원과 같은 #FFF08F 라야 반사로 읽힌다. */
-const DOT_GLINT: [number, number, number] = [255, 240, 143];
-/** 달빛 기둥의 기본 반폭(px)과, 화면 앞으로 올수록 벌어지는 비율.
+/* ── 윤슬(빛 반사) ───────────────────────────────────────────── */
+/** 빛기둥의 기본 반폭(px)과, 화면 앞으로 올수록 벌어지는 비율.
  *  가까울수록 넓게 퍼져야 수면에 깔린 길처럼 보인다. */
 const COLUMN_HALF_BASE = 170;
 const COLUMN_SPREAD = 0.4;
@@ -167,9 +287,9 @@ const GLINT_GAIN = 1.75;
 const CORE_GAIN = 1.1;
 /** 이 밝기를 넘는 점 뒤에 옅은 후광을 깔아 '빛나는' 느낌을 만든다. */
 const BLOOM_LEVEL = 0.7;
-/** 후광의 반지름 배수와 색. 옅게 여러 개가 겹쳐 은은하게 번진다. */
+/** 후광의 반지름 배수와 불투명도. 옅게 여러 개가 겹쳐 은은하게 번진다. */
 const BLOOM_SCALE = 3;
-const BLOOM_COLOR = "rgba(255, 240, 143, 0.09)";
+const BLOOM_ALPHA = 0.09;
 /** 달빛 밖 점의 기본 밝기(0~1). */
 const AMBIENT_LIGHT = 0.19;
 /** 밝은 점이 부풀어 보이는 정도. 반사광의 번짐을 흉내낸다. */
@@ -177,18 +297,18 @@ const GLINT_SWELL = 1.1;
 /** 밝기를 몇 단계로 양자화할지. 단계마다 Path2D 로 묶어 한 번에 칠한다. */
 const TONE_LEVELS = 7;
 
-/** 밝기 단계별 색. 짙은 바다색에서 은백색으로 건너간다.
+/** 밝기 단계별 색. 짙은 물빛에서 광원 색으로 건너간다.
  *  열의 원근 감쇠는 색이 아니라 밝기 값 쪽에 곱하므로, 이 표를 모든 열이 함께 쓴다.
- *  덕분에 프레임마다 경로를 TONE_LEVELS 개만 만들면 된다. */
-const TONES = Array.from({ length: TONE_LEVELS }, (_, t) => {
-  const f = (t + 0.5) / TONE_LEVELS;
-  const r = Math.round(DOT_DARK[0] + (DOT_GLINT[0] - DOT_DARK[0]) * f);
-  const g = Math.round(DOT_DARK[1] + (DOT_GLINT[1] - DOT_DARK[1]) * f);
-  const b = Math.round(DOT_DARK[2] + (DOT_GLINT[2] - DOT_DARK[2]) * f);
-  // 밝은 단계일수록 가파르게 불투명해져 반짝임이 수면에서 튀어나온다.
-  const a = Math.min(1, 0.12 + 1.7 * f ** 1.4);
-  return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`;
-});
+ *  덕분에 프레임마다 경로를 TONE_LEVELS 개만 만들면 된다.
+ *  팔레트가 밤↔아침으로 움직이므로 상수가 아니라 그때그때 다시 만든다. */
+const buildTones = (dark: RGB, glint: RGB) =>
+  Array.from({ length: TONE_LEVELS }, (_, t) => {
+    const f = (t + 0.5) / TONE_LEVELS;
+    const c = mixRgb(dark, glint, f);
+    // 밝은 단계일수록 가파르게 불투명해져 반짝임이 수면에서 튀어나온다.
+    const a = Math.min(1, 0.12 + 1.7 * f ** 1.4);
+    return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${a.toFixed(3)})`;
+  });
 
 /* ── 렌더링 ──────────────────────────────────────────────────── */
 /** 레티나에서 과도한 픽셀 처리를 막기 위한 DPR 상한. */
@@ -268,17 +388,40 @@ export function InteractiveBackground() {
     let meanderPhase = 0;
     let meanderPhase2 = 0;
 
-    // 배경 그라데이션은 뷰포트가 바뀔 때만 다시 만든다. 매 프레임 만들면 낭비다.
+    // 배경 그라데이션은 뷰포트나 전환 진행도가 바뀔 때만 다시 만든다.
     let horizonY = 0;
     let moonX = 0;
-    let moonY = 0;
-    /** 기준 크기 대비 실제로 그려진 달의 배율. 달빛 기둥도 같은 배율을 따른다. */
+    /** 광원이 수평선에 걸터앉는 높이. 밤의 달이 있는 자리이자 아침 해가 닿을 자리. */
+    let orbRestY = 0;
+    /** 원반이 수평선 아래로 완전히 잠기는 높이. */
+    let orbSunkY = 0;
+    /** 새 광원이 화면 위 바깥에서 대기하는 높이. 후광까지 화면 밖에 둔다. */
+    let orbAboveY = 0;
+    let moonR = 0;
+    /** 기준 크기 대비 실제로 그려진 광원의 배율. 빛기둥도 같은 배율을 따른다. */
     let moonScale = 1;
     let backdrop: HTMLCanvasElement | null = null;
 
-    /** 밤하늘·바다·달을 오프스크린에 한 번만 그려 둔다.
-     *  프레임마다 바뀌지 않는 그림이라, 매번 다시 칠하는 대신 통째로 복사한다. */
-    const buildBackdrop = () => {
+    /* 단위는 '단계'다. 0 밤, 1 노을, 2 아침, 3 다시 밤 … 광원을 눌러 아래로 끌면
+       커지고 위로 끌면 작아진다. 손을 떼면 가장 가까운 정수 단계로 붙는다.
+       고리 위로 접는 일은 stageAt 이 맡으므로 여기서는 범위를 두지 않는다. */
+    let dayProgress = 0;
+    let dayTarget = 0;
+    let dragging = false;
+    let dragPointerId = -1;
+    let dragStartY = 0;
+    let dragStartProgress = 0;
+    let hoveringOrb = false;
+
+    /** 현재 진행도에 맞춘 팔레트와 파생 색. 배경을 다시 구울 때 함께 갱신한다. */
+    let palette: Palette = NIGHT;
+    let tones = buildTones(NIGHT.dotDark, NIGHT.dotGlint);
+    let bloomColor = cssRgba(NIGHT.dotGlint, BLOOM_ALPHA);
+    /** 배경을 구울 때 쓴 진행도. 값이 달라졌을 때만 다시 굽는다. */
+    let backdropProgress = Number.NaN;
+
+    /** 뷰포트에만 좌우되는 기하. 색이나 진행도와 무관해 리사이즈 때만 구하면 된다. */
+    const layout = () => {
       horizonY = height * HORIZON_RATIO;
       moonX = width * MOON_X_RATIO;
 
@@ -287,62 +430,102 @@ export function InteractiveBackground() {
       const sink = 1 - 2 * MOON_SUBMERGE;
       // 좁은 화면에서는 폭에 비례해 줄인다. 높이만 보던 기존 제한은 세로로 긴
       // 태블릿·모바일에서 걸리지 않아, 달이 화면 폭을 넘기는 것을 못 막았다.
-      let moonR = MOON_RADIUS * Math.min(1, width / MOON_FULL_WIDTH);
+      moonR = MOON_RADIUS * Math.min(1, width / MOON_FULL_WIDTH);
       // 위쪽이 화면 밖으로 잘리면(하늘이 얕으면) 그만큼 더 줄인다.
       const maxR = (horizonY - MOON_MIN_GAP) / (1 + sink);
       if (moonR > maxR) moonR = maxR;
       moonR = Math.max(10, moonR);
       moonScale = moonR / MOON_RADIUS;
-      moonY = horizonY - moonR * sink;
 
+      orbRestY = horizonY - moonR * sink;
+      // 원반 위끝이 수평선 아래로 내려가야 바다가 완전히 덮는다.
+      orbSunkY = horizonY + moonR + 8;
+      // 후광 반경만큼 띄워 두면 대기 중인 광원의 빛이 하늘로 새지 않는다.
+      orbAboveY = -moonR * MOON_GLOW_SCALE;
+    };
+
+    /** 광원 하나(후광 + 원반)를 그린다. 밤의 달과 아침의 해가 같은 모양을 쓴다. */
+    const paintOrb = (
+      bctx: CanvasRenderingContext2D,
+      centerY: number,
+      alpha: number,
+      pal: Palette,
+    ) => {
+      if (alpha <= 0.004) return;
+      bctx.globalAlpha = alpha;
+
+      // 후광 → 원반 순으로 얹는다. 후광은 원반 가장자리에서 시작해야
+      // 원반 안쪽이 뿌옇게 뜨지 않는다.
+      const glowR = moonR * MOON_GLOW_SCALE;
+      const glow = bctx.createRadialGradient(
+        moonX,
+        centerY,
+        moonR,
+        moonX,
+        centerY,
+        glowR,
+      );
+      glow.addColorStop(0, cssRgba(pal.haloInner, 0.38));
+      glow.addColorStop(0.16, cssRgba(pal.haloMid, 0.15));
+      glow.addColorStop(0.5, cssRgba(pal.haloOuter, 0.05));
+      glow.addColorStop(1, cssRgba(pal.haloOuter, 0));
+      bctx.fillStyle = glow;
+      bctx.beginPath();
+      bctx.arc(moonX, centerY, glowR, 0, TAU);
+      bctx.fill();
+
+      bctx.fillStyle = cssRgb(pal.orb);
+      bctx.beginPath();
+      bctx.arc(moonX, centerY, moonR, 0, TAU);
+      bctx.fill();
+
+      bctx.globalAlpha = 1;
+    };
+
+    /** 하늘·광원·바다·빛기둥을 오프스크린에 구워 둔다.
+     *  프레임마다 바뀌지 않는 그림이라, 매번 다시 칠하는 대신 통째로 복사한다. */
+    const buildBackdrop = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
       const layer = backdrop ?? document.createElement("canvas");
-      layer.width = Math.max(1, Math.floor(width * dpr));
-      layer.height = Math.max(1, Math.floor(height * dpr));
+      const w = Math.max(1, Math.floor(width * dpr));
+      const h = Math.max(1, Math.floor(height * dpr));
+      if (layer.width !== w || layer.height !== h) {
+        layer.width = w;
+        layer.height = h;
+      }
       const bctx = layer.getContext("2d");
       if (!bctx) return;
       bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       backdrop = layer;
 
       const sky = bctx.createLinearGradient(0, 0, 0, horizonY);
-      sky.addColorStop(0, SKY_TOP);
-      sky.addColorStop(1, SKY_HORIZON);
+      sky.addColorStop(0, cssRgb(palette.skyTop));
+      sky.addColorStop(1, cssRgb(palette.skyHorizon));
       bctx.fillStyle = sky;
       bctx.fillRect(0, 0, width, horizonY);
 
-      // 달무리 → 원반 순으로 하늘 위에 먼저 얹는다. 후광은 원반 가장자리에서
-      // 시작해야 원반 안쪽이 뿌옇게 뜨지 않는다.
-      // 안쪽은 연노랑, 바깥으로 갈수록 밤하늘의 푸른빛으로 식는다.
-      const glowR = moonR * MOON_GLOW_SCALE;
-      const glow = bctx.createRadialGradient(moonX, moonY, moonR, moonX, moonY, glowR);
-      glow.addColorStop(0, "rgba(255, 240, 143, 0.38)");
-      glow.addColorStop(0.16, "rgba(230, 220, 152, 0.15)");
-      glow.addColorStop(0.5, "rgba(112, 148, 210, 0.05)");
-      glow.addColorStop(1, "rgba(96, 140, 210, 0)");
-      bctx.fillStyle = glow;
-      bctx.fillRect(moonX - glowR, moonY - glowR, glowR * 2, glowR * 2);
+      // 두 광원은 섞인 장면 팔레트가 아니라 각 단계의 색을 그대로 쓴다. 전환 중에
+      // 지는 광원과 내려오는 광원이 서로 다른 빛으로 읽혀야 하기 때문이다.
+      const { from, to, f } = stageAt(dayProgress);
+      paintOrb(bctx, orbRestY + (orbSunkY - orbRestY) * f, 1 - f, from);
+      paintOrb(bctx, orbAboveY + (orbRestY - orbAboveY) * f, f, to);
 
-      bctx.fillStyle = "#fff08f";
-      bctx.beginPath();
-      bctx.arc(moonX, moonY, moonR, 0, TAU);
-      bctx.fill();
-
-      // 바다를 달보다 나중에 칠해, 수평선 아래로 내려간 원반을 덮어 가린다.
-      // 수평선에서 화면 앞쪽으로 갈수록 깊고 어두워진다.
+      // 바다를 광원보다 나중에 칠해, 수평선 아래로 내려간 원반을 덮어 가린다.
+      // 수평선에서 화면 앞쪽으로 갈수록 깊어진다.
       const sea = bctx.createLinearGradient(0, horizonY, 0, height);
-      sea.addColorStop(0, SEA_FAR);
-      sea.addColorStop(1, SEA_NEAR);
+      sea.addColorStop(0, cssRgb(palette.seaFar));
+      sea.addColorStop(1, cssRgb(palette.seaNear));
       bctx.fillStyle = sea;
       bctx.fillRect(0, horizonY, width, height - horizonY);
 
-      // 수면에 깔린 달빛 길. 원형 그라데이션을 세로로 늘여 기둥 모양으로 만든다.
-      // 달 바로 아래는 연노랑, 앞으로 올수록 물빛에 섞여 푸르게 식는다.
-      // 달이 줄면 수면에 깔리는 빛도 같이 줄어야 광원과 반사가 한 몸으로 읽힌다.
+      // 수면에 깔린 빛의 길. 원형 그라데이션을 세로로 늘여 기둥 모양으로 만든다.
+      // 광원 바로 아래가 가장 밝고, 앞으로 올수록 물빛에 섞여 식는다.
+      // 광원이 줄면 수면에 깔리는 빛도 같이 줄어야 광원과 반사가 한 몸으로 읽힌다.
       const columnR = COLUMN_GLOW_RADIUS * moonScale;
       const column = bctx.createRadialGradient(0, 0, 0, 0, 0, columnR);
-      column.addColorStop(0, "rgba(255, 240, 143, 0.40)");
-      column.addColorStop(0.45, "rgba(158, 178, 220, 0.15)");
-      column.addColorStop(1, "rgba(90, 132, 200, 0)");
+      column.addColorStop(0, cssRgba(palette.columnInner, 0.4));
+      column.addColorStop(0.45, cssRgba(palette.columnMid, 0.15));
+      column.addColorStop(1, cssRgba(palette.columnOuter, 0));
       bctx.save();
       // 하늘로 새어 나가지 않도록 바다 영역으로 잘라낸다.
       bctx.beginPath();
@@ -357,11 +540,22 @@ export function InteractiveBackground() {
       bctx.restore();
     };
 
-    /** 미리 그려 둔 밤바다를 통째로 복사한다. */
+    /** 진행도에 맞춰 팔레트와 배경을 다시 만든다. 값이 그대로면 아무것도 하지 않는다. */
+    const syncDay = (force = false) => {
+      if (!force && backdropProgress === dayProgress) return;
+      const stage = stageAt(dayProgress);
+      palette = mixPalette(stage.from, stage.to, stage.f);
+      tones = buildTones(palette.dotDark, palette.dotGlint);
+      bloomColor = cssRgba(palette.dotGlint, BLOOM_ALPHA);
+      buildBackdrop();
+      backdropProgress = dayProgress;
+    };
+
+    /** 미리 그려 둔 장면을 통째로 복사한다. */
     const paintBackdrop = () => {
       if (backdrop) ctx.drawImage(backdrop, 0, 0, width, height);
       else {
-        ctx.fillStyle = SEA_NEAR;
+        ctx.fillStyle = cssRgb(palette.seaNear);
         ctx.fillRect(0, 0, width, height);
       }
     };
@@ -467,6 +661,16 @@ export function InteractiveBackground() {
     };
 
     const draw = (delta: number) => {
+      // 손을 뗀 뒤에는 목표값으로 부드럽게 붙는다. 끌고 있는 동안에는
+      // 포인터가 직접 진행도를 쥐고 있으므로 건드리지 않는다.
+      if (!dragging && dayProgress !== dayTarget) {
+        const k = 1 - Math.exp(-delta / DAY_SETTLE_TAU);
+        const next = dayProgress + (dayTarget - dayProgress) * k;
+        dayProgress = Math.abs(dayTarget - next) < 0.002 ? dayTarget : next;
+      }
+      // 진행도가 움직인 프레임에만 팔레트와 배경을 다시 굽는다.
+      syncDay();
+
       paintBackdrop();
 
       applyPointer(delta);
@@ -624,14 +828,14 @@ export function InteractiveBackground() {
 
       // 후광을 먼저 깔고 그 위에 점을 얹어야, 또렷한 알갱이가 빛에 싸여 보인다.
       if (hasBloom) {
-        ctx.fillStyle = BLOOM_COLOR;
+        ctx.fillStyle = bloomColor;
         ctx.fill(bloomPath);
       }
 
       // 어두운 단계부터 칠해, 밝은 반짝임이 가장 위에 얹히게 한다.
       for (let t = 0; t < TONE_LEVELS; t += 1) {
         if (!toneUsed[t]) continue;
-        ctx.fillStyle = TONES[t];
+        ctx.fillStyle = tones[t];
         ctx.fill(tonePaths[t]);
       }
 
@@ -669,7 +873,8 @@ export function InteractiveBackground() {
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      buildBackdrop();
+      layout();
+      syncDay(true);
       buildRows();
 
       if (reducedMotion.matches) draw(0);
@@ -683,10 +888,88 @@ export function InteractiveBackground() {
       pointerX = event.clientX;
       pointerY = event.clientY;
       pointerActive = true;
+
+      // 잡을 수 있는 자리라는 걸 커서로 알린다. 캔버스는 pointer-events 를 받지
+      // 않으므로 body 에 걸어 준다.
+      if (!dragging) {
+        const over = orbAt(event.clientX, event.clientY);
+        if (over !== hoveringOrb) {
+          hoveringOrb = over;
+          document.body.style.cursor = over ? "grab" : "";
+        }
+      }
     };
 
     const releasePointer = () => {
       pointerActive = false;
+      // 창 밖으로 나간 사이 pointerup 을 놓치면 드래그가 영영 풀리지 않는다.
+      if (dragging) endDrag();
+    };
+
+    /* ── 밤 → 아침 드래그 ─────────────────────────────────────── */
+
+    /** 지금 화면에 떠 있는 광원을 눌렀는지. 두 원반 중 하나라도 맞으면 잡는다. */
+    const orbAt = (x: number, y: number) => {
+      const grabR = Math.max(moonR, ORB_GRAB_MIN);
+      const dx = x - moonX;
+      if (dx * dx > grabR * grabR) return false;
+
+      const { f } = stageAt(dayProgress);
+
+      // 지는 광원은 수평선 아래로 잠긴 부분이 바다에 가려 보이지 않으므로 제외한다.
+      const sinkingY = orbRestY + (orbSunkY - orbRestY) * f;
+      if (y <= horizonY + 4) {
+        const dy = y - sinkingY;
+        if (dx * dx + dy * dy <= grabR * grabR) return true;
+      }
+
+      const risingY = orbAboveY + (orbRestY - orbAboveY) * f;
+      const rdy = y - risingY;
+      return dx * dx + rdy * rdy <= grabR * grabR;
+    };
+
+    /** 전환을 끝내는 데 필요한 드래그 거리(px). */
+    const dragSpan = () =>
+      Math.min(DAY_DRAG_MAX, Math.max(DAY_DRAG_MIN, height * DAY_DRAG_RATIO));
+
+    // 드래그하는 동안에는 페이지가 같이 스크롤되지 않도록 막는다.
+    const preventScroll = (event: TouchEvent) => event.preventDefault();
+
+    /** 드래그를 끝내고 가장 가까운 단계(밤/노을/아침)로 붙인다.
+     *  중간 단계에서 손을 뗐을 때 그 자리에 머무를 수 있어야 노을이 한 상태로 산다. */
+    function endDrag() {
+      dragging = false;
+      dragPointerId = -1;
+      dayTarget = Math.round(dayProgress);
+      hoveringOrb = false;
+      document.body.style.cursor = "";
+      window.removeEventListener("touchmove", preventScroll);
+    }
+
+    const handleDragStart = (event: PointerEvent) => {
+      if (reducedMotion.matches || dragging) return;
+      if (!orbAt(event.clientX, event.clientY)) return;
+
+      dragging = true;
+      dragPointerId = event.pointerId;
+      dragStartY = event.clientY;
+      dragStartProgress = dayProgress;
+      document.body.style.cursor = "grabbing";
+      window.addEventListener("touchmove", preventScroll, { passive: false });
+    };
+
+    const handleDragMove = (event: PointerEvent) => {
+      if (!dragging || event.pointerId !== dragPointerId) return;
+
+      // 아래로 끌면 다음 단계로, 위로 되끌면 이전 단계로. 고리라서 양쪽 모두
+      // 끝이 없고, 계속 끌면 밤 → 노을 → 아침 → 밤 … 으로 이어진다.
+      dayProgress =
+        dragStartProgress + (event.clientY - dragStartY) / dragSpan();
+    };
+
+    const handleDragEnd = (event: PointerEvent) => {
+      if (!dragging || event.pointerId !== dragPointerId) return;
+      endDrag();
     };
 
     resize();
@@ -696,6 +979,10 @@ export function InteractiveBackground() {
     window.addEventListener("pointermove", handlePointerMove, {
       passive: true,
     });
+    window.addEventListener("pointerdown", handleDragStart, { passive: true });
+    window.addEventListener("pointermove", handleDragMove, { passive: true });
+    window.addEventListener("pointerup", handleDragEnd, { passive: true });
+    window.addEventListener("pointercancel", handleDragEnd, { passive: true });
     window.addEventListener("blur", releasePointer);
     document.addEventListener("mouseleave", releasePointer);
     reducedMotion.addEventListener("change", start);
@@ -704,9 +991,15 @@ export function InteractiveBackground() {
       window.cancelAnimationFrame(frameId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerdown", handleDragStart);
+      window.removeEventListener("pointermove", handleDragMove);
+      window.removeEventListener("pointerup", handleDragEnd);
+      window.removeEventListener("pointercancel", handleDragEnd);
+      window.removeEventListener("touchmove", preventScroll);
       window.removeEventListener("blur", releasePointer);
       document.removeEventListener("mouseleave", releasePointer);
       reducedMotion.removeEventListener("change", start);
+      document.body.style.cursor = "";
     };
   }, []);
 
