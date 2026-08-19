@@ -95,7 +95,7 @@ export function Header() {
           top-18 로 GNB 높이만큼 내리고, z-40 이라 z-50 인 GNB 가 늘 위에 남는다. */}
       <div
         id="mobile-menu"
-        className={`fixed inset-x-0 bottom-0 top-18 z-40 bg-[#04081a] transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-x-0 bottom-0 top-18 z-40 bg-[#04081a]/40 backdrop-blur-3xl transition-opacity duration-300 md:hidden ${
           isOpen
             ? "visible opacity-100"
             : "invisible opacity-0"
