@@ -10,19 +10,14 @@ export default function Home() {
     <>
       <InteractiveBackground />
 
+      {/* 화면에는 달과 윤슬만 남기고 비워 둔다. 제목은 스크린 리더와 검색엔진을
+          위해 남겨 두되 시각적으로는 감춘다. */}
       <section
         aria-labelledby="home-heading"
-        className="flex min-h-[60vh] flex-col items-center justify-center text-center"
+        className="min-h-[60vh]"
       >
-        <p className="mb-5 text-sm font-medium uppercase tracking-[0.18em] text-neutral-500">
-          Product Designer
-        </p>
-
-        <h1
-          id="home-heading"
-          className="text-6xl font-semibold tracking-[-0.05em] sm:text-7xl lg:text-8xl"
-        >
-          Your Name
+        <h1 id="home-heading" className="sr-only">
+          Your Name — Product Designer
         </h1>
       </section>
     </>

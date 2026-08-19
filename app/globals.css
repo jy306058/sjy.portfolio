@@ -1,8 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
+  /* 밤바다 배경. 캔버스가 그리는 하늘 맨 위 색과 맞춰, 캔버스가 뜨기 전이나
+     캔버스 바깥 영역에서도 이음매가 보이지 않게 한다. */
+  --background: #04081a;
+  --foreground: #e8eefc;
 }
 
 @theme inline {
@@ -17,7 +19,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* 흰 배경은 html 에서만 칠한다. body 가 불투명하면 음수 z-index 로 깔린
+/* 배경은 html 에서만 칠한다. body 가 불투명하면 음수 z-index 로 깔린
    인터랙티브 배경 캔버스가 가려지기 때문이다. */
 body {
   min-height: 100dvh;
@@ -30,12 +32,15 @@ body {
     sans-serif;
 }
 
+/* 앵커가 브라우저 기본 검정으로 계산돼 어두운 배경에서 사라진다.
+   전경색을 물려받도록 명시한다. */
 button,
 a {
+  color: inherit;
   -webkit-tap-highlight-color: transparent;
 }
 
 ::selection {
-  background: #000000;
-  color: #ffffff;
+  background: #e4f1ff;
+  color: #04081a;
 }
